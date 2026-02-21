@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import Daily from '../models/daily.model';
 import Weekly from '../models/weekly.model';
 import Monthly from '../models/monthly.model';
-import DSA from '../models/dsa.model';
 import BackendTopic from '../models/backendTopic.model';
 import SystemDesign from '../models/systemDesign.model';
 import Task from '../models/task.model';
