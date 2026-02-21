@@ -54,6 +54,26 @@ router.get('/sections', listResource(models.section));
 router.get('/sections/:id', getResource(models.section));
 router.put('/sections/:id', updateResource(models.section));
 router.delete('/sections/:id', deleteResource(models.section));
+router.post('/sections/reorder', async (req, res) => {
+  try {
+    const { order } = req.body; // expected array of section IDs in desired order
+    if (!Array.isArray(order)) return res.status(400).json({ message: 'Order must be an array of section IDs' });
+    const userId = (req as any).userId;
+    
+    // Update order for each section
+    for (let i = 0; i < order.length; i++) {
+      const sectionId = order[i];
+      await models.section.findOneAndUpdate({ _id: sectionId, user: userId }, { order: i }, { new: true });
+    }
+    
+    // Return updated sections
+    const sections = await models.section.find({ user: userId }).sort({ order: 1 });
+    res.json({ data: sections });
+  } catch (err: any) {
+    console.error('reorderSections error:', err);
+    res.status(400).json({ message: err.message });
+  }
+});
 
 // jobs
 router.post('/jobs', createResource(models.job));

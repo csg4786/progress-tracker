@@ -16,11 +16,18 @@ interface FormModalProps {
   fields: FormField[];
   onSubmit: (data: any) => Promise<void>;
   loading?: boolean;
+  initialValues?: any;
 }
 
-const FormModal: React.FC<FormModalProps> = ({ open, onClose, title, fields, onSubmit, loading }) => {
+const FormModal: React.FC<FormModalProps> = ({ open, onClose, title, fields, onSubmit, loading, initialValues }) => {
   const [formData, setFormData] = React.useState<any>({});
   const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setFormData(initialValues || {});
+    }
+  }, [open, initialValues]);
 
   const handleChange = (name: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [name]: value }));

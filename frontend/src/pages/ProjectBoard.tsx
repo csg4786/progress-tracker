@@ -15,6 +15,9 @@ const ProjectBoard: React.FC = () => {
   const [showSectionManager, setShowSectionManager] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
   const [editingTask, setEditingTask] = useState<any | null>(null);
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [editingSectionName, setEditingSectionName] = useState('');
+  const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -89,6 +92,77 @@ const ProjectBoard: React.FC = () => {
     }
   };
 
+  const handleEditSection = async (id: string) => {
+    setEditingSectionId(id);
+    const section = sections.find(s => s._id === id);
+    if (section) setEditingSectionName(section.name);
+  };
+
+  const handleSaveSection = async (id: string) => {
+    if (!editingSectionName.trim()) return;
+    try {
+      await axios.put(`/sections/${id}`, { name: editingSectionName });
+      setSuccess('Section updated');
+      setTimeout(() => setSuccess(null), 2000);
+      setEditingSectionId(null);
+      setEditingSectionName('');
+      loadSections();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update section');
+    }
+  };
+
+  const handleDragStartSection = (e: React.DragEvent, sectionId: string | undefined) => {
+    if (!sectionId) return;
+    setDraggingSectionId(sectionId);
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('sectionId', sectionId);
+    } catch (err) {
+      // ignore
+    }
+  };
+
+  const handleDragOverSection = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDropSection = async (e: React.DragEvent, targetSectionId: string | undefined) => {
+    e.preventDefault();
+    if (!draggingSectionId || !targetSectionId || draggingSectionId === targetSectionId) {
+      setDraggingSectionId(null);
+      return;
+    }
+
+    const ids = sections.map(s => s._id);
+    const fromIdx = ids.indexOf(draggingSectionId);
+    const toIdx = ids.indexOf(targetSectionId);
+    if (fromIdx === -1 || toIdx === -1) {
+      setDraggingSectionId(null);
+      return;
+    }
+
+    // Remove dragged section
+    ids.splice(fromIdx, 1);
+    // Insert before target
+    ids.splice(toIdx, 0, draggingSectionId);
+    setDraggingSectionId(null);
+
+    // Optimistic update
+    const newSections = ids.map(id => sections.find(s => s._id === id)!).filter(Boolean);
+    setSections(newSections);
+
+    try {
+      await axios.post('/sections/reorder', { order: ids });
+      setSuccess('Sections reordered');
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to reorder sections');
+      loadSections(); // reload on error
+    }
+  };
+
   const handleEditTask = async (id: string, data: any) => {
     try {
       await axios.put(`/tasks/${id}`, data);
@@ -144,6 +218,19 @@ const ProjectBoard: React.FC = () => {
 
   const byColumn = (col: string) => tasks.filter((t) => t.column === col);
 
+  const handleColumnDrop = async (e: React.DragEvent, col: any) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('taskId');
+    if (taskId) {
+      return onDrop(e, col.name || col);
+    }
+
+    const sectionId = e.dataTransfer.getData('sectionId') || draggingSectionId;
+    if (sectionId && col._id) {
+      return handleDropSection(e, col._id);
+    }
+  };
+
   const formFields = [
     { name: 'title', label: 'Task Title', type: 'text', required: true },
     { name: 'description', label: 'Description', type: 'textarea', required: false },
@@ -177,14 +264,47 @@ const ProjectBoard: React.FC = () => {
         {showSectionManager && (
           <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded space-y-3">
             <div className="flex gap-2">
-              <input value={newSectionName} onChange={(e) => setNewSectionName(e.target.value)} placeholder="New section name" className="flex-1 px-2 py-1 rounded border" />
+              <input value={newSectionName} onChange={(e) => setNewSectionName(e.target.value)} placeholder="New section name" className="text-black flex-1 px-2 py-1 rounded border" />
               <button onClick={handleCreateSection} className="px-3 py-1 bg-green-500 text-white rounded">Create</button>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {sections.map((s) => (
-                <div key={s._id || s.name} className="p-2 border rounded flex justify-between items-center">
-                  <span>{s.name}</span>
-                  {s._id && <button onClick={() => handleDeleteSection(s._id)} className="text-xs px-2 py-1 bg-red-500 text-white rounded">Delete</button>}
+                <div key={s._id || s.name} className="p-2 border rounded">
+                  {editingSectionId === s._id ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={editingSectionName}
+                        onChange={(e) => setEditingSectionName(e.target.value)}
+                        className="flex-1 px-2 py-1 border rounded text-black"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleSaveSection(s._id)}
+                        className="text-xs px-2 py-1 bg-green-500 text-white rounded"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => setEditingSectionId(null)}
+                        className="text-xs px-2 py-1 bg-gray-400 text-white rounded"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <span>{s.name}</span>
+                      <div className="flex gap-1">
+                        {s._id && (
+                          <>
+                            <button onClick={() => handleEditSection(s._id)} className="text-xs px-2 py-1 bg-blue-500 text-white rounded">Edit</button>
+                            <button onClick={() => handleDeleteSection(s._id)} className="text-xs px-2 py-1 bg-red-500 text-white rounded">Delete</button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -195,10 +315,12 @@ const ProjectBoard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {(sections.length ? sections : defaultColumns).map((col: any) => (
           <div
-            key={col.name || col}
-            className="p-4 bg-gray-100 dark:bg-gray-800 rounded shadow min-h-[400px]"
-            onDragOver={allowDrop}
-            onDrop={(e) => onDrop(e, col.name || col)}
+            key={col._id || col.name || col}
+            draggable={col._id ? true : false}
+            onDragStart={(e) => col._id && handleDragStartSection(e, col._id)}
+            onDragOver={handleDragOverSection}
+            onDrop={(e) => handleColumnDrop(e, col)}
+            className={`p-4 bg-gray-100 dark:bg-gray-800 rounded shadow min-h-[400px] ${col._id ? 'cursor-move' : ''}`}
           >
             <h3 className="font-semibold mb-4 text-lg">{col.name || col}</h3>
             <div className="space-y-3">
@@ -258,6 +380,7 @@ const ProjectBoard: React.FC = () => {
           title="Edit Task"
           fields={formFields}
           onSubmit={(data: any) => handleEditTask(editingTask._id, data)}
+          initialValues={editingTask}
           loading={loading}
         />
       )}
