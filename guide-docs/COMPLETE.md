@@ -1,4 +1,4 @@
-# 🎉 Career Command Center — Project Complete!
+# 🎉 traCko — Project Complete!
 
 ## ✨ What Was Generated
 

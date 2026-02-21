@@ -2,7 +2,6 @@ import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import DailyTracker from './pages/DailyTracker';
-import DsaTracker from './pages/DsaTracker';
 import ProjectBoard from './pages/ProjectBoard';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
@@ -38,14 +37,6 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <DailyTracker />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/dsa"
-                element={
-                  <ProtectedRoute>
-                    <DsaTracker />
                   </ProtectedRoute>
                 }
               />

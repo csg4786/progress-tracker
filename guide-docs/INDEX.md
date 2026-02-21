@@ -1,4 +1,4 @@
-# Career Command Center — Complete Documentation Index
+# traCko — Complete Documentation Index
 
 Welcome! This is a **production-ready MERN stack application** for personal productivity and career tracking.
 

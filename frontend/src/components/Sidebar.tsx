@@ -5,7 +5,6 @@ const Sidebar: React.FC = () => {
   const items = [
     ['Dashboard', '/dashboard'],
     ['Daily', '/daily'],
-    ['DSA', '/dsa'],
     ['Project Board', '/board']
   ];
   return (

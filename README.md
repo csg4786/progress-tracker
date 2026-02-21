@@ -1,4 +1,4 @@
-# Career Command Center
+# traCko
 
 A complete MERN stack productivity & career-tracking system with modules for DSA, backend learning, system design, project management, and job applications.
 

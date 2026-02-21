@@ -5,7 +5,6 @@ import axios from '../services/axios';
 interface DailySummary {
   date: string;
   score: number;
-  dsaCompleted: number;
   backendLearning: number;
   systemDesign: number;
   projectWork: number;
@@ -13,7 +12,6 @@ interface DailySummary {
 
 interface Stats {
   totalDailyEntries: number;
-  totalDsaProblems: number;
   totalTasks: number;
   totalJobs: number;
   avgScore: number;
@@ -23,7 +21,6 @@ const Dashboard: React.FC = () => {
   const [dailyData, setDailyData] = useState<DailySummary[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalDailyEntries: 0,
-    totalDsaProblems: 0,
     totalTasks: 0,
     totalJobs: 0,
     avgScore: 0,
@@ -37,7 +34,6 @@ const Dashboard: React.FC = () => {
       setError(null);
       try {
         const dailyRes = await axios.get('/daily');
-        const dsaRes = await axios.get('/dsa');
         const taskRes = await axios.get('/tasks');
         const jobRes = await axios.get('/jobs');
 
@@ -48,7 +44,6 @@ const Dashboard: React.FC = () => {
           .map((d: any) => ({
             date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             score: d.score,
-            dsaCompleted: d.dsaCompleted,
             backendLearning: d.backendLearning,
             systemDesign: d.systemDesign,
             projectWork: d.projectWork,
@@ -62,7 +57,6 @@ const Dashboard: React.FC = () => {
         setDailyData(chartData);
         setStats({
           totalDailyEntries: dailyItems.length,
-          totalDsaProblems: Array.isArray(dsaRes.data.data) ? dsaRes.data.data.length : (dsaRes.data.data ? 1 : 0),
           totalTasks: Array.isArray(taskRes.data.data) ? taskRes.data.data.length : (taskRes.data.data ? 1 : 0),
           totalJobs: Array.isArray(jobRes.data.data) ? jobRes.data.data.length : (jobRes.data.data ? 1 : 0),
           avgScore: Number(avgScore),
@@ -90,14 +84,10 @@ const Dashboard: React.FC = () => {
       <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="p-4 bg-white dark:bg-gray-800 rounded shadow">
           <div className="text-gray-600 dark:text-gray-400 text-sm">Daily Entries</div>
           <div className="text-3xl font-bold text-indigo-600">{stats.totalDailyEntries}</div>
-        </div>
-        <div className="p-4 bg-white dark:bg-gray-800 rounded shadow">
-          <div className="text-gray-600 dark:text-gray-400 text-sm">DSA Problems</div>
-          <div className="text-3xl font-bold text-indigo-600">{stats.totalDsaProblems}</div>
         </div>
         <div className="p-4 bg-white dark:bg-gray-800 rounded shadow">
           <div className="text-gray-600 dark:text-gray-400 text-sm">Tasks</div>
@@ -141,7 +131,6 @@ const Dashboard: React.FC = () => {
                 <XAxis dataKey="date" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="dsaCompleted" fill="#8884d8" name="DSA" />
                 <Bar dataKey="backendLearning" fill="#82ca9d" name="Backend" />
                 <Bar dataKey="systemDesign" fill="#ffc658" name="System Design" />
                 <Bar dataKey="projectWork" fill="#ff7c7c" name="Projects" />

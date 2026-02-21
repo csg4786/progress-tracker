@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import Weekly from '../models/weekly.model';
 import Monthly from '../models/monthly.model';
-import DSA from '../models/dsa.model';
 import BackendTopic from '../models/backendTopic.model';
 import SystemDesign from '../models/systemDesign.model';
 import Task from '../models/task.model';
@@ -59,7 +58,6 @@ export const deleteResource = (Model: any) => async (req: Request, res: Response
 export const models = {
   weekly: Weekly,
   monthly: Monthly,
-  dsa: DSA,
   backendTopic: BackendTopic,
   systemDesign: SystemDesign,
   task: Task,

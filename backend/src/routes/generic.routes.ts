@@ -20,13 +20,6 @@ router.get('/monthly/:id', getResource(models.monthly));
 router.put('/monthly/:id', updateResource(models.monthly));
 router.delete('/monthly/:id', deleteResource(models.monthly));
 
-// dsa
-router.post('/dsa', createResource(models.dsa));
-router.get('/dsa', listResource(models.dsa));
-router.get('/dsa/:id', getResource(models.dsa));
-router.put('/dsa/:id', updateResource(models.dsa));
-router.delete('/dsa/:id', deleteResource(models.dsa));
-
 // backend topics
 router.post('/backend-topic', createResource(models.backendTopic));
 router.get('/backend-topic', listResource(models.backendTopic));

@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import morgan from 'morgan';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import apiRouter from './routes';
@@ -10,13 +11,15 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+// HTTP request logging
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 const PORT = process.env.PORT || 4000;
 
 app.use('/api', apiRouter);
 
 app.get('/', (_req, res) => {
-  res.json({ ok: true, name: 'Career Command Center API' });
+  res.json({ ok: true, name: 'traCko API' });
 });
 
 async function start() {

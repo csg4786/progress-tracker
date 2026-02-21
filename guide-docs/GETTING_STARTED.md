@@ -1,4 +1,4 @@
-# Career Command Center — Getting Started Checklist
+# traCko — Getting Started Checklist
 
 ## ✅ Project Generation Complete
 
