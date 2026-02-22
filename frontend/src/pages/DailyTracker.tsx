@@ -21,6 +21,8 @@ interface DailyTask {
   title: string;
   type: string;
   completed: boolean;
+  assignee?: string | { _id: string; username: string };
+  owner?: string | { _id: string; username: string }; // track who created the task
   customFields?: { [key: string]: any };
 }
 
@@ -29,6 +31,7 @@ interface DailyEntry {
   date: string;
   tasks: DailyTask[];
   score: number;
+  workspace?: string;
 }
 
 const DailyTracker: React.FC = () => {
@@ -37,6 +40,7 @@ const DailyTracker: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dailyData, setDailyData] = useState<DailyEntry | null>(null);
   const [taskTypes, setTaskTypes] = useState<TaskType[]>([]);
+  const [workspaceMembers, setWorkspaceMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -61,6 +65,18 @@ const DailyTracker: React.FC = () => {
     }
   };
 
+  const fetchWorkspaceMembers = async () => {
+    if (!workspaceId) return;
+    try {
+      const res = await axios.get(`/workspaces/${workspaceId}/members`);
+      const owner = res.data.owner ? [res.data.owner] : [];
+      const members = (res.data.members || []).map((m: any) => m.user);
+      setWorkspaceMembers([...owner, ...members]);
+    } catch (err: any) {
+      console.error('Failed to load workspace members');
+    }
+  };
+
   const fetchDailyData = async (date: Date) => {
     setLoading(true);
     setError(null);
@@ -75,14 +91,39 @@ const DailyTracker: React.FC = () => {
       if (workspaceId) params.workspaceId = workspaceId;
       const res = await axios.get('/daily', { params });
       
-      let daily = res.data.data?.[0];
-      if (!daily) {
-        const body: any = { date: dateStr, tasks: [] };
-        if (workspaceId) body.workspace = workspaceId;
-        const createRes = await axios.post('/daily', body, { params: workspaceId ? { workspaceId } : {} });
-        daily = createRes.data;
+      // For workspace view, fetch all daily entries for this date and merge tasks with owner info
+      if (workspaceId && res.data.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
+        // Merge all tasks from all workspace members and attach owner info
+        const allTasks: DailyTask[] = [];
+        res.data.data.forEach((daily: any) => {
+          const ownerUsername = workspaceMembers.find(m => m._id === daily.user)?.username || 'Unknown';
+          (daily.tasks || []).forEach((task: any) => {
+            const assigneeUsername = task.assignee && workspaceMembers.find(m => m._id === task.assignee)?.username;
+            allTasks.push({
+              ...task,
+              owner: { _id: daily.user, username: ownerUsername },
+              assignee: assigneeUsername ? { _id: task.assignee, username: assigneeUsername } : task.assignee
+            });
+          });
+        });
+        const merged = {
+          _id: res.data.data[0]._id,
+          date: dateStr,
+          workspace: workspaceId,
+          tasks: allTasks,
+          score: 0
+        };
+        setDailyData(merged);
+      } else {
+        let daily = res.data.data?.[0];
+        if (!daily) {
+          const body: any = { date: dateStr, tasks: [] };
+          if (workspaceId) body.workspace = workspaceId;
+          const createRes = await axios.post('/daily', body, { params: workspaceId ? { workspaceId } : {} });
+          daily = createRes.data;
+        }
+        setDailyData(daily);
       }
-      setDailyData(daily);
     } catch (err: any) {
       setError(err.message || 'Failed to load daily data');
     } finally {
@@ -92,7 +133,8 @@ const DailyTracker: React.FC = () => {
 
   useEffect(() => {
     fetchTaskTypes();
-  }, []);
+    fetchWorkspaceMembers();
+  }, [workspaceId]);
 
   useEffect(() => {
     fetchDailyData(selectedDate);
@@ -162,7 +204,12 @@ const DailyTracker: React.FC = () => {
     try {
       const body: any = { title: newTaskTitle, type: newTaskType, customFields: {} };
       const res = await axios.post(`/daily/${dailyData._id}/tasks`, body, { params: workspaceId ? { workspaceId } : {} });
-      setDailyData(res.data);
+      // For workspace view, re-fetch all dailies to preserve assignees from other members' tasks
+      if (workspaceId) {
+        await fetchDailyData(selectedDate);
+      } else {
+        setDailyData(res.data);
+      }
       setNewTaskTitle('');
       setSuccess('Task added!');
       setTimeout(() => setSuccess(null), 2000);
@@ -651,11 +698,48 @@ const DailyTracker: React.FC = () => {
                           <div className={`font-medium ${task.completed ? 'line-through text-gray-500' : ''}`}>
                             {task.title}
                           </div>
-                          <div
-                            className="text-xs px-2 py-1 rounded w-fit mt-1"
-                            style={{ backgroundColor: getTaskTypeColor(task.type) + '30', color: getTaskTypeColor(task.type) }}
-                          >
-                            {task.type}
+                          {workspaceId && task.owner && (
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                              Owner: {typeof task.owner === 'object' ? task.owner.username : task.owner}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 mt-1">
+                            <div
+                              className="text-xs px-2 py-1 rounded w-fit"
+                              style={{ backgroundColor: getTaskTypeColor(task.type) + '30', color: getTaskTypeColor(task.type) }}
+                            >
+                              {task.type}
+                            </div>
+                            {/* Assignee display/selector */}
+                            {workspaceId && (
+                              <div className="text-xs">
+                                {canEdit ? (
+                                  <select
+                                    value={(task.assignee && typeof task.assignee === 'object' ? task.assignee._id : task.assignee) || ''}
+                                    onChange={async (e) => {
+                                      try {
+                                        const updatedTask = { ...task, assignee: e.target.value || undefined };
+                                        await axios.put(`/daily/${dailyData!._id}/tasks/${task._id}`, { assignee: e.target.value || undefined }, { params: { workspaceId } });
+                                        const updated = dailyData!.tasks.map(t => t._id === task._id ? updatedTask : t);
+                                        setDailyData({ ...dailyData!, tasks: updated });
+                                      } catch (err: any) {
+                                        setError('Failed to update assignee');
+                                      }
+                                    }}
+                                    className="px-2 py-0 border border-gray-300 rounded text-black"
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {workspaceMembers.map((m) => (
+                                      <option key={m._id} value={m._id}>{m.username}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span className="text-gray-600 dark:text-gray-400">
+                                    Assigned: {(task.assignee && typeof task.assignee === 'object' ? task.assignee.username : 'Unknown') || 'Unassigned'}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex gap-1">

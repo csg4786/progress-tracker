@@ -49,6 +49,7 @@ const Workspaces: React.FC = () => {
 
   const [modalMembers, setModalMembers] = useState<any[]>([]);
   const [membersCollapsed, setMembersCollapsed] = useState(false);
+  const [shareOpenForWorkspace, setShareOpenForWorkspace] = useState<any>(null);
 
   useEffect(() => {
     if (!shareOpenFor) return;
@@ -59,6 +60,7 @@ const Workspaces: React.FC = () => {
         const owner = res.data.owner;
         const members = res.data.members || [];
         setModalMembers([{ user: owner, role: 'owner' }, ...members]);
+        setShareOpenForWorkspace({ id: shareOpenFor, ownerId: owner?._id || owner });
       } catch (err) {
         console.error('Failed to load members', err);
       }
@@ -149,18 +151,26 @@ const Workspaces: React.FC = () => {
                       <div className="font-medium">{m.user?.username || m.user}</div>
                       <div className="text-xs text-gray-500">{m.role}</div>
                     </div>
-                    <div className="flex gap-2">
-                      {/* Owner cannot be changed here */}
-                      {m.role !== 'owner' && (
-                        <button onClick={async () => { await handleShare(shareOpenFor!, m.user._id || m.user, 'remove'); const res = await axios.get(`/workspaces/${shareOpenFor}/members`); setModalMembers([{ user: res.data.owner, role: 'owner' }, ...(res.data.members || [])]); }} className="text-xs px-2 py-1 bg-red-500 text-white rounded">Remove</button>
-                      )}
-                    </div>
+                    {/* Only show controls if current user is the owner */}
+                    {shareOpenForWorkspace?.ownerId === auth.user?.id && (
+                      <div className="flex gap-2">
+                        {m.role === 'owner' ? (
+                          <span className="text-xs text-gray-500">Owner</span>
+                        ) : (
+                          <>
+                            <button onClick={() => handleShare(shareOpenFor!, m.user._id || m.user, 'viewer')} className="text-xs px-2 py-1 bg-blue-500 text-white rounded">Viewer</button>
+                            <button onClick={() => handleShare(shareOpenFor!, m.user._id || m.user, 'editor')} className="text-xs px-2 py-1 bg-blue-700 text-white rounded">Editor</button>
+                            <button onClick={async () => { await handleShare(shareOpenFor!, m.user._id || m.user, 'remove'); const res = await axios.get(`/workspaces/${shareOpenFor}/members`); setModalMembers([{ user: res.data.owner, role: 'owner' }, ...(res.data.members || [])]); }} className="text-xs px-2 py-1 bg-red-500 text-white rounded">Remove</button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
 
               {/* Only owners can add new shares */}
-              {modalMembers.find((m: any) => m.user?._id === auth.user?.id)?.role === 'owner' && (
+              {shareOpenForWorkspace?.ownerId === auth.user?.id && (
                 <>
                   <input
                     value={searchQ}

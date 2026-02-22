@@ -5,6 +5,7 @@ export interface IDailyTask {
   title: string;
   type: 'dsa' | 'backend' | 'system-design' | 'project' | string; // Allow custom types
   completed: boolean;
+  assignee?: string; // User ID of assignee
   customFields?: { [key: string]: any }; // Store custom field values
 }
 
@@ -31,6 +32,7 @@ const DailySchema = new Schema<IDaily>({
       title: { type: String, required: true },
       type: { type: String, required: true }, // Allow any task type
       completed: { type: Boolean, default: false },
+      assignee: { type: Schema.Types.ObjectId, ref: 'User', required: false },
       customFields: { type: Schema.Types.Mixed, default: {} } // Store custom field values
     }
   ],

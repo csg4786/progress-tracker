@@ -9,6 +9,7 @@ const defaultColumns = ['Backlog', 'In Progress', 'Testing', 'Completed', 'Docum
 const ProjectBoard: React.FC = () => {
   const [tasks, setTasks] = useState<any[]>([]);
   const [sections, setSections] = useState<any[]>([]);
+  const [workspaceMembers, setWorkspaceMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -22,6 +23,18 @@ const ProjectBoard: React.FC = () => {
 
   const { workspaceId, role } = useContext(WorkspaceContext);
   const canEdit = !workspaceId || (role && (role === 'owner' || role === 'editor'));
+
+  const loadWorkspaceMembers = async () => {
+    if (!workspaceId) return;
+    try {
+      const res = await axios.get(`/workspaces/${workspaceId}/members`);
+      const owner = res.data.owner ? [res.data.owner] : [];
+      const members = (res.data.members || []).map((m: any) => m.user);
+      setWorkspaceMembers([...owner, ...members]);
+    } catch (err: any) {
+      console.error('Failed to load workspace members');
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -49,9 +62,18 @@ const ProjectBoard: React.FC = () => {
   };
 
   useEffect(() => {
-    load();
-    loadSections();
-  }, []);
+    loadWorkspaceMembers();
+  }, [workspaceId]);
+
+  useEffect(() => {
+    if (workspaceId && workspaceMembers.length > 0) {
+      load();
+      loadSections();
+    } else if (!workspaceId) {
+      load();
+      loadSections();
+    }
+  }, [workspaceMembers, workspaceId]);
 
   const handleCreate = async (formData: any) => {
     try {
@@ -212,7 +234,7 @@ const ProjectBoard: React.FC = () => {
     );
 
     try {
-      await axios.put(`/tasks/${taskId}`, { column: targetColumn });
+      await axios.put(`/tasks/${taskId}`, { column: targetColumn }, { params: workspaceId ? { workspaceId } : {} });
       setSuccess('Task moved!');
       setTimeout(() => setSuccess(null), 2000);
     } catch (err: any) {
@@ -357,6 +379,36 @@ const ProjectBoard: React.FC = () => {
                       )}
                     </div>
                   </div>
+                  {workspaceId && (
+                    <div className="text-xs mb-2">
+                      {canEdit ? (
+                        <select
+                          key={`assignee-${t._id}-${t.assignee}`}
+                          defaultValue={t.assignee || ''}
+                          onChange={async (e) => {
+                            const newAssignee = e.target.value || undefined;
+                            setTasks(tasks.map(task => task._id === t._id ? { ...task, assignee: newAssignee } : task));
+                            try {
+                              await axios.put(`/tasks/${t._id}`, { assignee: newAssignee }, { params: { workspaceId } });
+                            } catch (err: any) {
+                              setError('Failed to update assignee');
+                              load();
+                            }
+                          }}
+                          className="px-2 py-0 border border-gray-300 rounded text-black"
+                        >
+                          <option value="">Unassigned</option>
+                          {workspaceMembers.map((m) => (
+                            <option key={m._id} value={m._id}>{m.username}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-gray-600 dark:text-gray-400">
+                          Assigned: {workspaceMembers.find(m => m._id === t.assignee)?.username || 'Unassigned'}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {t.priority && (
                     <div
                       className={`text-xs font-semibold mb-2 px-2 py-1 rounded w-fit ${

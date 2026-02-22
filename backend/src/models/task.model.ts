@@ -4,6 +4,8 @@ export interface ITask extends Document {
   title: string;
   description?: string;
   user?: string;
+  workspace?: string;
+  assignee?: string;
   column: string;
   priority?: 'Low' | 'Medium' | 'High';
   area?: string;
@@ -14,6 +16,7 @@ export interface ITask extends Document {
 const TaskSchema = new Schema<ITask>({
   user: { type: Schema.Types.ObjectId, ref: 'User', required: false },
   workspace: { type: Schema.Types.ObjectId, ref: 'Workspace', required: false },
+  assignee: { type: Schema.Types.ObjectId, ref: 'User', required: false },
   title: { type: String, required: true },
   description: { type: String },
   column: { type: String, default: 'Backlog' },

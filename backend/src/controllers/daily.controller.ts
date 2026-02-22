@@ -182,7 +182,7 @@ export const addTask = async (req: Request, res: Response) => {
 export const updateTask = async (req: Request, res: Response) => {
   try {
     const { taskId } = req.params;
-    const { title, type, completed, customFields } = req.body;
+    const { title, type, completed, customFields, assignee } = req.body;
     const daily = await Daily.findOne({ _id: req.params.id });
     if (!daily) return res.status(404).json({ message: 'Daily entry not found' });
     if (daily.workspace) {
@@ -200,6 +200,7 @@ export const updateTask = async (req: Request, res: Response) => {
     if (type) task.type = type;
     if (completed !== undefined) task.completed = completed;
     if (customFields !== undefined) task.customFields = customFields;
+    if (assignee !== undefined) task.assignee = assignee || undefined;
     
     await daily.save();
     res.json(daily);
