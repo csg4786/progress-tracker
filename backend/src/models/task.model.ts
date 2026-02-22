@@ -13,6 +13,7 @@ export interface ITask extends Document {
 
 const TaskSchema = new Schema<ITask>({
   user: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+  workspace: { type: Schema.Types.ObjectId, ref: 'Workspace', required: false },
   title: { type: String, required: true },
   description: { type: String },
   column: { type: String, default: 'Backlog' },
@@ -22,7 +23,8 @@ const TaskSchema = new Schema<ITask>({
   order: { type: Number, default: 0 }
 });
 
-// Index to quickly query a user's tasks by column/order
-TaskSchema.index({ user: 1, column: 1, order: 1 });
+// Index to quickly query a user's or workspace's tasks by column/order
+TaskSchema.index({ user: 1, column: 1, order: 1 }, { sparse: true });
+TaskSchema.index({ workspace: 1, column: 1, order: 1 }, { sparse: true });
 
 export default model<ITask>('Task', TaskSchema);

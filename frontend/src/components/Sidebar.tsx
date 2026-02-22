@@ -5,7 +5,8 @@ const Sidebar: React.FC = () => {
   const items = [
     ['Dashboard', '/dashboard'],
     ['Daily', '/daily'],
-    ['Project Board', '/board']
+    ['Project Board', '/board'],
+    ['Workspaces', '/workspaces']
   ];
   return (
     <aside className="w-60 border-r dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hidden md:block">

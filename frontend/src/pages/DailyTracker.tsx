@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import axios from '../services/axios';
 import { useModalStore } from '../stores/modalStore';
+import WorkspaceContext from '../contexts/WorkspaceContext';
 
 interface TaskType {
   _id: string;
@@ -31,6 +32,8 @@ interface DailyEntry {
 }
 
 const DailyTracker: React.FC = () => {
+  const { workspaceId, role } = useContext(WorkspaceContext);
+  const canEdit = !workspaceId || (role && (role === 'owner' || role === 'editor'));
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dailyData, setDailyData] = useState<DailyEntry | null>(null);
   const [taskTypes, setTaskTypes] = useState<TaskType[]>([]);
@@ -48,7 +51,7 @@ const DailyTracker: React.FC = () => {
 
   const fetchTaskTypes = async () => {
     try {
-      const res = await axios.get('/task-types');
+      const res = await axios.get('/task-types', { params: workspaceId ? { workspaceId } : {} });
       setTaskTypes(res.data.data || []);
       if (res.data.data?.length > 0 && !newTaskType) {
         setNewTaskType(res.data.data[0].name);
@@ -68,14 +71,15 @@ const DailyTracker: React.FC = () => {
       const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
       const dateStr = `${y}-${pad(m)}-${pad(d)}`;
       
-      const res = await axios.get(`/daily?date=${dateStr}`);
+      const params: any = { date: dateStr };
+      if (workspaceId) params.workspaceId = workspaceId;
+      const res = await axios.get('/daily', { params });
       
       let daily = res.data.data?.[0];
       if (!daily) {
-        const createRes = await axios.post('/daily', {
-          date: dateStr,
-          tasks: []
-        });
+        const body: any = { date: dateStr, tasks: [] };
+        if (workspaceId) body.workspace = workspaceId;
+        const createRes = await axios.post('/daily', body, { params: workspaceId ? { workspaceId } : {} });
         daily = createRes.data;
       }
       setDailyData(daily);
@@ -97,7 +101,9 @@ const DailyTracker: React.FC = () => {
   const handleCreateTaskType = async () => {
     if (!newTypeName.trim()) return;
     try {
-      await axios.post('/task-types', { name: newTypeName, color: newTypeColor });
+      const body: any = { name: newTypeName, color: newTypeColor };
+      if (workspaceId) body.workspace = workspaceId;
+      await axios.post('/task-types', body);
       setSuccess('Task type created!');
       setTimeout(() => setSuccess(null), 2000);
       setNewTypeName('');
@@ -154,11 +160,8 @@ const DailyTracker: React.FC = () => {
   const handleAddTask = async () => {
     if (!newTaskTitle.trim() || !dailyData) return;
     try {
-      const res = await axios.post(`/daily/${dailyData._id}/tasks`, {
-        title: newTaskTitle,
-        type: newTaskType,
-        customFields: {}
-      });
+      const body: any = { title: newTaskTitle, type: newTaskType, customFields: {} };
+      const res = await axios.post(`/daily/${dailyData._id}/tasks`, body, { params: workspaceId ? { workspaceId } : {} });
       setDailyData(res.data);
       setNewTaskTitle('');
       setSuccess('Task added!');
@@ -172,7 +175,7 @@ const DailyTracker: React.FC = () => {
   const handleToggleTask = async (taskId: string | undefined) => {
     if (!taskId || !dailyData) return;
     try {
-      const res = await axios.patch(`/daily/${dailyData._id}/tasks/${taskId}/toggle`);
+      const res = await axios.patch(`/daily/${dailyData._id}/tasks/${taskId}/toggle`, {}, { params: workspaceId ? { workspaceId } : {} });
       setDailyData(res.data);
     } catch (err: any) {
       console.error('handleToggleTask error', err.response || err);
@@ -183,9 +186,7 @@ const DailyTracker: React.FC = () => {
   const handleUpdateCustomField = async (taskId: string | undefined) => {
     if (!taskId || !dailyData) return;
     try {
-      const res = await axios.put(`/daily/${dailyData._id}/tasks/${taskId}`, {
-        customFields: editingCustomFields
-      });
+      const res = await axios.put(`/daily/${dailyData._id}/tasks/${taskId}`, { customFields: editingCustomFields }, { params: workspaceId ? { workspaceId } : {} });
       setDailyData(res.data);
       setEditingTaskId(null);
       setEditingCustomFields({});
@@ -200,7 +201,7 @@ const DailyTracker: React.FC = () => {
   const handleCopyToToday = async (taskId: string | undefined) => {
     if (!taskId || !dailyData) return;
     try {
-      const res = await axios.post(`/daily/${dailyData._id}/tasks/${taskId}/copy-to-today`);
+      const res = await axios.post(`/daily/${dailyData._id}/tasks/${taskId}/copy-to-today`, {}, { params: workspaceId ? { workspaceId } : {} });
       setSuccess('Task copied to today!');
       setTimeout(() => setSuccess(null), 2000);
     } catch (err: any) {
@@ -215,7 +216,7 @@ const DailyTracker: React.FC = () => {
     if (!taskId || !dailyData) return;
     if (!confirm('Delete this task?')) return;
     try {
-      const res = await axios.delete(`/daily/${dailyData._id}/tasks/${taskId}`);
+      const res = await axios.delete(`/daily/${dailyData._id}/tasks/${taskId}`, { params: workspaceId ? { workspaceId } : {} });
       setDailyData(res.data);
       setSuccess('Task deleted!');
       setTimeout(() => setSuccess(null), 2000);
@@ -249,7 +250,7 @@ const DailyTracker: React.FC = () => {
     const newTasks = newOrderIds.map((id) => tasksById[id]).filter(Boolean);
     setDailyData({ ...dailyData, tasks: newTasks });
     try {
-      await axios.post(`/daily/${dailyData._id}/tasks/reorder`, { order: newOrderIds });
+      await axios.post(`/daily/${dailyData._id}/tasks/reorder`, { order: newOrderIds }, { params: workspaceId ? { workspaceId } : {} });
     } catch (err: any) {
       console.error('performReorder error', err);
       // on failure, refresh from server
@@ -468,12 +469,14 @@ const DailyTracker: React.FC = () => {
 
       {/* Task Type Manager */}
       <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded shadow">
-        <button
-          onClick={() => setShowTypeManager(!showTypeManager)}
-          className="font-semibold text-lg mb-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-        >
-          {showTypeManager ? '✕ Close' : '+ Manage Task Types'}
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setShowTypeManager(!showTypeManager)}
+            className="font-semibold text-lg mb-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          >
+            {showTypeManager ? '✕ Close' : '+ Manage Task Types'}
+          </button>
+        )}
 
         {showTypeManager && (
           <div className="space-y-4 border-t pt-4">
@@ -583,7 +586,8 @@ const DailyTracker: React.FC = () => {
         ) : (
           <>
             {/* Add Task Input */}
-            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded">
+            {canEdit && (
+              <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded">
               <div className="flex gap-2 mb-3">
                 <input
                   type="text"
@@ -611,7 +615,8 @@ const DailyTracker: React.FC = () => {
                   Add
                 </button>
               </div>
-            </div>
+              </div>
+            )}
 
             {/* Tasks List */}
             {(!dailyData?.tasks || dailyData.tasks.length === 0) ? (
@@ -638,8 +643,9 @@ const DailyTracker: React.FC = () => {
                         <input
                           type="checkbox"
                           checked={task.completed}
-                          onChange={() => handleToggleTask(task._id)}
-                          className="w-5 h-5"
+                          onChange={() => canEdit ? handleToggleTask(task._id) : undefined}
+                          className={`w-5 h-5 ${canEdit ? '' : 'opacity-50 cursor-not-allowed'}`}
+                          disabled={!canEdit}
                         />
                         <div className="flex-1">
                           <div className={`font-medium ${task.completed ? 'line-through text-gray-500' : ''}`}>
@@ -653,7 +659,7 @@ const DailyTracker: React.FC = () => {
                           </div>
                         </div>
                         <div className="flex gap-1">
-                          {customFields.length > 0 && (
+                          {customFields.length > 0 && canEdit && (
                             <button
                               onClick={() => {
                                 setEditingTaskId(isEditing ? null : (task._id || ''));
@@ -666,7 +672,7 @@ const DailyTracker: React.FC = () => {
                               {isEditing ? '✓' : '✎'}
                             </button>
                           )}
-                          {isSelectedDatePast && (
+                          {isSelectedDatePast && canEdit && (
                             <button
                               onClick={() => handleCopyToToday(task._id)}
                               className="px-2 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
@@ -674,12 +680,14 @@ const DailyTracker: React.FC = () => {
                               ↪
                             </button>
                           )}
-                          <button
-                            onClick={() => handleDeleteTask(task._id)}
-                            className="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                          >
-                            ✕
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleDeleteTask(task._id)}
+                              className="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       </div>
 

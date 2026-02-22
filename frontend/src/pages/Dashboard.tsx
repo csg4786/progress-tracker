@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
+import WorkspaceContext from '../contexts/WorkspaceContext';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import axios from '../services/axios';
 
@@ -27,6 +28,7 @@ interface StreakData {
 }
 
 const Dashboard: React.FC = () => {
+  const { workspaceId } = useContext(WorkspaceContext);
   const [taskTypes, setTaskTypes] = useState<TaskType[]>([]);
   const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([]);
   const [streakData, setStreakData] = useState<StreakData>({});
@@ -44,10 +46,10 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        // Fetch task types and daily entries
+        // Fetch task types and daily entries (workspace-scoped when active)
         const [typesRes, dailyRes] = await Promise.all([
-          axios.get('/task-types'),
-          axios.get('/daily')
+          axios.get('/task-types', { params: workspaceId ? { workspaceId } : {} }),
+          axios.get('/daily', { params: workspaceId ? { workspaceId } : {} })
         ]);
 
         const types = typesRes.data.data || [];

@@ -52,15 +52,22 @@ router.post('/sections/reorder', async (req, res) => {
     const { order } = req.body; // expected array of section IDs in desired order
     if (!Array.isArray(order)) return res.status(400).json({ message: 'Order must be an array of section IDs' });
     const userId = (req as any).userId;
-    
+    const workspaceId = req.body.workspaceId || req.query.workspaceId;
+
     // Update order for each section
     for (let i = 0; i < order.length; i++) {
       const sectionId = order[i];
-      await models.section.findOneAndUpdate({ _id: sectionId, user: userId }, { order: i }, { new: true });
+      if (workspaceId) {
+        await models.section.findOneAndUpdate({ _id: sectionId, workspace: workspaceId }, { order: i }, { new: true });
+      } else {
+        await models.section.findOneAndUpdate({ _id: sectionId, user: userId }, { order: i }, { new: true });
+      }
     }
     
     // Return updated sections
-    const sections = await models.section.find({ user: userId }).sort({ order: 1 });
+    const sections = workspaceId
+      ? await models.section.find({ workspace: workspaceId }).sort({ order: 1 })
+      : await models.section.find({ user: userId }).sort({ order: 1 });
     res.json({ data: sections });
   } catch (err: any) {
     console.error('reorderSections error:', err);

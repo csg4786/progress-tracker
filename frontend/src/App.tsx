@@ -3,6 +3,8 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import DailyTracker from './pages/DailyTracker';
 import ProjectBoard from './pages/ProjectBoard';
+import Workspaces from './pages/Workspaces';
+import WorkspaceView from './pages/WorkspaceView';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import Settings from './pages/Settings';
@@ -45,6 +47,22 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <ProjectBoard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workspaces"
+                element={
+                  <ProtectedRoute>
+                    <Workspaces />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workspaces/:id/*"
+                element={
+                  <ProtectedRoute>
+                    <WorkspaceView />
                   </ProtectedRoute>
                 }
               />

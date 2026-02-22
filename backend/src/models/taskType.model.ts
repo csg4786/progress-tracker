@@ -20,14 +20,16 @@ const CustomFieldSchema = new Schema<ICustomField>({
 });
 
 const TaskTypeSchema = new Schema<ITaskType>({
-  user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  user: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+  workspace: { type: Schema.Types.ObjectId, ref: 'Workspace', required: false },
   name: { type: String, required: true },
   color: { type: String, required: true, default: '#6366F1' },
   customFields: [CustomFieldSchema],
   createdAt: { type: Date, default: () => new Date() }
 });
 
-// Ensure name uniqueness per user
-TaskTypeSchema.index({ user: 1, name: 1 }, { unique: true });
+// Ensure name uniqueness per user or per workspace
+TaskTypeSchema.index({ user: 1, name: 1 }, { unique: true, sparse: true });
+TaskTypeSchema.index({ workspace: 1, name: 1 }, { unique: true, sparse: true });
 
 export default model<ITaskType>('TaskType', TaskTypeSchema);

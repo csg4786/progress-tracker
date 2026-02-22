@@ -23,7 +23,8 @@ export interface IDaily extends Document {
 }
 
 const DailySchema = new Schema<IDaily>({
-  user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  user: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+  workspace: { type: Schema.Types.ObjectId, ref: 'Workspace', required: false },
   date: { type: Date, required: true },
   tasks: [
     {
@@ -64,7 +65,9 @@ DailySchema.pre('save', function (next) {
   next();
 });
 
-// Ensure uniqueness per user+date
-DailySchema.index({ user: 1, date: 1 }, { unique: true });
+// Ensure uniqueness per user+date and per workspace+date (sparse so it doesn't conflict)
+// Use partialFilterExpression to avoid collisions when `user` or `workspace` is null/absent
+DailySchema.index({ user: 1, date: 1 }, { unique: true, partialFilterExpression: { user: { $exists: true, $ne: null } } });
+DailySchema.index({ workspace: 1, date: 1 }, { unique: true, partialFilterExpression: { workspace: { $exists: true, $ne: null } } });
 
 export default model<IDaily>('Daily', DailySchema);

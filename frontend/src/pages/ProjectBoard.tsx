@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import axios from '../services/axios';
 import FormModal from '../components/FormModal';
 import { useModalStore } from '../stores/modalStore';
+import WorkspaceContext from '../contexts/WorkspaceContext';
 
 const defaultColumns = ['Backlog', 'In Progress', 'Testing', 'Completed', 'Documented'];
 
@@ -19,12 +20,15 @@ const ProjectBoard: React.FC = () => {
   const [editingSectionName, setEditingSectionName] = useState('');
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
 
+  const { workspaceId, role } = useContext(WorkspaceContext);
+  const canEdit = !workspaceId || (role && (role === 'owner' || role === 'editor'));
+
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get('/tasks');
-      setTasks(res.data.data || res.data);
+      const res = await axios.get('/tasks', { params: workspaceId ? { workspaceId } : {} });
+      setTasks(res.data.data || res.data || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load tasks');
     } finally {
@@ -34,8 +38,8 @@ const ProjectBoard: React.FC = () => {
 
   const loadSections = async () => {
     try {
-      const res = await axios.get('/sections');
-      const s = res.data.data || res.data;
+      const res = await axios.get('/sections', { params: workspaceId ? { workspaceId } : {} });
+      const s = res.data.data || res.data || [];
       if (s && s.length > 0) setSections(s.sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
       else setSections(defaultColumns.map((c, i) => ({ name: c, order: i })));
     } catch (err: any) {
@@ -51,14 +55,16 @@ const ProjectBoard: React.FC = () => {
 
   const handleCreate = async (formData: any) => {
     try {
-      await axios.post('/tasks', {
+      const body: any = {
         title: formData.title,
         description: formData.description,
         priority: formData.priority,
         area: formData.area,
         notes: formData.notes,
         column: sections?.[0]?.name || 'Backlog',
-      });
+      };
+      if (workspaceId) body.workspace = workspaceId;
+      await axios.post('/tasks', body);
       setSuccess('Task created successfully!');
       setTimeout(() => setSuccess(null), 3000);
       load();
@@ -70,7 +76,9 @@ const ProjectBoard: React.FC = () => {
   const handleCreateSection = async () => {
     if (!newSectionName.trim()) return;
     try {
-      await axios.post('/sections', { name: newSectionName });
+      const body: any = { name: newSectionName };
+      if (workspaceId) body.workspace = workspaceId;
+      await axios.post('/sections', body);
       setNewSectionName('');
       setSuccess('Section created');
       setTimeout(() => setSuccess(null), 2000);
@@ -83,7 +91,7 @@ const ProjectBoard: React.FC = () => {
   const handleDeleteSection = async (id: string) => {
     if (!confirm('Delete this section?')) return;
     try {
-      await axios.delete(`/sections/${id}`);
+      await axios.delete(`/sections/${id}`, { params: workspaceId ? { workspaceId } : {} });
       setSuccess('Section deleted');
       setTimeout(() => setSuccess(null), 2000);
       loadSections();
@@ -101,7 +109,7 @@ const ProjectBoard: React.FC = () => {
   const handleSaveSection = async (id: string) => {
     if (!editingSectionName.trim()) return;
     try {
-      await axios.put(`/sections/${id}`, { name: editingSectionName });
+      await axios.put(`/sections/${id}`, { name: editingSectionName }, { params: workspaceId ? { workspaceId } : {} });
       setSuccess('Section updated');
       setTimeout(() => setSuccess(null), 2000);
       setEditingSectionId(null);
@@ -154,7 +162,9 @@ const ProjectBoard: React.FC = () => {
     setSections(newSections);
 
     try {
-      await axios.post('/sections/reorder', { order: ids });
+      const body: any = { order: ids };
+      if (workspaceId) body.workspaceId = workspaceId;
+      await axios.post('/sections/reorder', body);
       setSuccess('Sections reordered');
       setTimeout(() => setSuccess(null), 2000);
     } catch (err: any) {
@@ -165,7 +175,7 @@ const ProjectBoard: React.FC = () => {
 
   const handleEditTask = async (id: string, data: any) => {
     try {
-      await axios.put(`/tasks/${id}`, data);
+      await axios.put(`/tasks/${id}`, data, { params: workspaceId ? { workspaceId } : {} });
       setEditingTask(null);
       setSuccess('Task updated');
       setTimeout(() => setSuccess(null), 2000);
@@ -178,7 +188,7 @@ const ProjectBoard: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this task?')) return;
     try {
-      await axios.delete(`/tasks/${id}`);
+      await axios.delete(`/tasks/${id}`, { params: workspaceId ? { workspaceId } : {} });
       setSuccess('Task deleted!');
       setTimeout(() => setSuccess(null), 3000);
       load();
@@ -255,17 +265,19 @@ const ProjectBoard: React.FC = () => {
       {success && <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-700 rounded">{success}</div>}
 
       <div className="mb-4">
-        <button
-          onClick={() => setShowSectionManager(!showSectionManager)}
-          className="px-3 py-1 bg-indigo-600 text-white rounded"
-        >
-          {showSectionManager ? 'Close Sections' : 'Manage Sections'}
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setShowSectionManager(!showSectionManager)}
+            className="px-3 py-1 bg-indigo-600 text-white rounded"
+          >
+            {showSectionManager ? 'Close Sections' : 'Manage Sections'}
+          </button>
+        )}
         {showSectionManager && (
           <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded space-y-3">
             <div className="flex gap-2">
               <input value={newSectionName} onChange={(e) => setNewSectionName(e.target.value)} placeholder="New section name" className="text-black flex-1 px-2 py-1 rounded border" />
-              <button onClick={handleCreateSection} className="px-3 py-1 bg-green-500 text-white rounded">Create</button>
+              <button onClick={handleCreateSection} className="px-3 py-1 bg-green-500 text-white rounded" disabled={!canEdit}>Create</button>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {sections.map((s) => (
@@ -298,8 +310,8 @@ const ProjectBoard: React.FC = () => {
                       <div className="flex gap-1">
                         {s._id && (
                           <>
-                            <button onClick={() => handleEditSection(s._id)} className="text-xs px-2 py-1 bg-blue-500 text-white rounded">Edit</button>
-                            <button onClick={() => handleDeleteSection(s._id)} className="text-xs px-2 py-1 bg-red-500 text-white rounded">Delete</button>
+                            {canEdit && <button onClick={() => handleEditSection(s._id)} className="text-xs px-2 py-1 bg-blue-500 text-white rounded">Edit</button>}
+                            {canEdit && <button onClick={() => handleDeleteSection(s._id)} className="text-xs px-2 py-1 bg-red-500 text-white rounded">Delete</button>}
                           </>
                         )}
                       </div>
@@ -333,14 +345,16 @@ const ProjectBoard: React.FC = () => {
                 >
                   <div className="flex justify-between items-start gap-2 mb-1">
                     <div className="font-medium flex-1">{t.title}</div>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setEditingTask(t)} className="text-xs px-2 py-1 bg-blue-500 text-white rounded">Edit</button>
-                      <button
-                        onClick={() => handleDelete(t._id)}
-                        className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-                      >
-                        ✕
-                      </button>
+                      <div className="flex items-center gap-1">
+                      {canEdit && <button onClick={() => setEditingTask(t)} className="text-xs px-2 py-1 bg-blue-500 text-white rounded">Edit</button>}
+                      {canEdit && (
+                        <button
+                          onClick={() => handleDelete(t._id)}
+                          className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   </div>
                   {t.priority && (
