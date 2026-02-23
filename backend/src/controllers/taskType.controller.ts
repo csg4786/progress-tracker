@@ -111,7 +111,7 @@ export const removeCustomField = async (req: Request, res: Response) => {
     const taskType = await TaskType.findOne(query);
     if (!taskType) return res.status(404).json({ message: 'Task type not found' });
 
-    taskType.customFields = taskType.customFields?.filter((f) => f.name !== fieldName) || [];
+    taskType.customFields = taskType.customFields?.filter((f: any) => f.name !== fieldName) || [];
     await taskType.save();
     res.json(taskType);
   } catch (err: any) {

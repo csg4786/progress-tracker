@@ -1,7 +1,8 @@
 import { Schema, model, Document } from 'mongoose';
 
 export interface ISection extends Document {
-  user: string;
+  user?: any;
+  workspace?: any;
   name: string;
   order?: number;
   createdAt?: Date;

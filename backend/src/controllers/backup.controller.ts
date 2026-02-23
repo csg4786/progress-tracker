@@ -8,18 +8,17 @@ import Task from '../models/task.model';
 import Job from '../models/job.model';
 
 export const exportAll = async (_req: Request, res: Response) => {
-  const [dailies, weeklies, monthlies, dsas, backendTopics, systemDesigns, tasks, jobs] = await Promise.all([
+  const [dailies, weeklies, monthlies, backendTopics, systemDesigns, tasks, jobs] = await Promise.all([
     Daily.find(),
     Weekly.find(),
     Monthly.find(),
-    DSA.find(),
     BackendTopic.find(),
     SystemDesign.find(),
     Task.find(),
     Job.find()
   ]);
 
-  res.json({ dailies, weeklies, monthlies, dsas, backendTopics, systemDesigns, tasks, jobs });
+  res.json({ dailies, weeklies, monthlies, backendTopics, systemDesigns, tasks, jobs });
 };
 
 // simple import: expects object with arrays for each collection
@@ -31,7 +30,6 @@ export const importAll = async (req: Request, res: Response) => {
       Daily.deleteMany({}),
       Weekly.deleteMany({}),
       Monthly.deleteMany({}),
-      DSA.deleteMany({}),
       BackendTopic.deleteMany({}),
       SystemDesign.deleteMany({}),
       Task.deleteMany({}),
@@ -43,7 +41,6 @@ export const importAll = async (req: Request, res: Response) => {
     ...(payload.dailies || []).map((d: any) => Daily.create(d)),
     ...(payload.weeklies || []).map((d: any) => Weekly.create(d)),
     ...(payload.monthlies || []).map((d: any) => Monthly.create(d)),
-    ...(payload.dsas || []).map((d: any) => DSA.create(d)),
     ...(payload.backendTopics || []).map((d: any) => BackendTopic.create(d)),
     ...(payload.systemDesigns || []).map((d: any) => SystemDesign.create(d)),
     ...(payload.tasks || []).map((d: any) => Task.create(d)),

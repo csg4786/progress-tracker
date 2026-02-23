@@ -164,8 +164,10 @@ export const addTask = async (req: Request, res: Response) => {
       const Workspace = (await import('../models/workspace.model')).default;
       const ok = await Workspace.findOne({ _id: daily.workspace, $or: [{ owner: (req as any).userId }, { 'members.user': (req as any).userId }] });
       if (!ok) return res.status(403).json({ message: 'Access denied' });
-    } else if (daily.user.toString() !== (req as any).userId) {
-      return res.status(404).json({ message: 'Daily entry not found' });
+    } else {
+      if (!daily.user || daily.user.toString() !== (req as any).userId) {
+        return res.status(404).json({ message: 'Daily entry not found' });
+      }
     }
     if (!daily) return res.status(404).json({ message: 'Daily entry not found' });
     
@@ -189,11 +191,13 @@ export const updateTask = async (req: Request, res: Response) => {
       const Workspace = (await import('../models/workspace.model')).default;
       const ok = await Workspace.findOne({ _id: daily.workspace, $or: [{ owner: (req as any).userId }, { 'members.user': (req as any).userId }] });
       if (!ok) return res.status(403).json({ message: 'Access denied' });
-    } else if (daily.user.toString() !== (req as any).userId) {
-      return res.status(404).json({ message: 'Daily entry not found' });
+    } else {
+      if (!daily.user || daily.user.toString() !== (req as any).userId) {
+        return res.status(404).json({ message: 'Daily entry not found' });
+      }
     }
-    
-    const task = daily.tasks?.find((t) => t._id?.toString() === taskId);
+
+    const task = daily.tasks?.find((t: any) => t._id?.toString() === taskId);
     if (!task) return res.status(404).json({ message: 'Task not found' });
     
     if (title) task.title = title;
@@ -219,11 +223,13 @@ export const deleteTask = async (req: Request, res: Response) => {
       const Workspace = (await import('../models/workspace.model')).default;
       const ok = await Workspace.findOne({ _id: daily.workspace, $or: [{ owner: (req as any).userId }, { 'members.user': (req as any).userId }] });
       if (!ok) return res.status(403).json({ message: 'Access denied' });
-    } else if (daily.user.toString() !== (req as any).userId) {
-      return res.status(404).json({ message: 'Daily entry not found' });
+    } else {
+      if (!daily.user || daily.user.toString() !== (req as any).userId) {
+        return res.status(404).json({ message: 'Daily entry not found' });
+      }
     }
-    
-    daily.tasks = daily.tasks?.filter((t) => t._id?.toString() !== taskId) || [];
+
+    daily.tasks = daily.tasks?.filter((t: any) => t._id?.toString() !== taskId) || [];
     await daily.save();
     res.json(daily);
   } catch (err: any) {
@@ -243,11 +249,13 @@ export const toggleTask = async (req: Request, res: Response) => {
       const Workspace = (await import('../models/workspace.model')).default;
       const ok = await Workspace.findOne({ _id: daily.workspace, $or: [{ owner: userId }, { 'members.user': userId }] });
       if (!ok) return res.status(403).json({ message: 'Access denied' });
-    } else if (daily.user.toString() !== userId) {
-      return res.status(404).json({ message: 'Daily entry not found' });
+    } else {
+      if (!daily.user || daily.user.toString() !== userId) {
+        return res.status(404).json({ message: 'Daily entry not found' });
+      }
     }
 
-    const task = daily.tasks?.find((t) => t._id?.toString() === taskId);
+    const task = daily.tasks?.find((t: any) => t._id?.toString() === taskId);
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
     task.completed = !task.completed;
@@ -270,10 +278,12 @@ export const copyTaskToToday = async (req: Request, res: Response) => {
       const Workspace = (await import('../models/workspace.model')).default;
       const ok = await Workspace.findOne({ _id: sourceDaily.workspace, $or: [{ owner: userId }, { 'members.user': userId }] });
       if (!ok) return res.status(403).json({ message: 'Access denied' });
-    } else if (sourceDaily.user.toString() !== userId) {
-      return res.status(404).json({ message: 'Source daily not found' });
+    } else {
+      if (!sourceDaily.user || sourceDaily.user.toString() !== userId) {
+        return res.status(404).json({ message: 'Source daily not found' });
+      }
     }
-    const task = sourceDaily.tasks?.find((t) => t._id?.toString() === taskId);
+    const task = sourceDaily.tasks?.find((t: any) => t._id?.toString() === taskId);
     if (!task) return res.status(404).json({ message: 'Task not found in source' });
 
     // compute today's UTC dayStart
@@ -295,7 +305,7 @@ export const copyTaskToToday = async (req: Request, res: Response) => {
     }
 
     // prevent duplicate (by title+type)
-    const exists = todayDaily.tasks?.some((t) => t.title === task.title && t.type === task.type);
+    const exists = todayDaily.tasks?.some((t: any) => t.title === task.title && t.type === task.type);
     if (exists) return res.status(409).json({ message: 'Task already exists for today' });
 
     todayDaily.tasks = todayDaily.tasks || [];
@@ -319,13 +329,15 @@ export const reorderTasks = async (req: Request, res: Response) => {
       const Workspace = (await import('../models/workspace.model')).default;
       const ok = await Workspace.findOne({ _id: daily.workspace, $or: [{ owner: userId }, { 'members.user': userId }] });
       if (!ok) return res.status(403).json({ message: 'Access denied' });
-    } else if (daily.user.toString() !== userId) {
-      return res.status(404).json({ message: 'Daily entry not found' });
+    } else {
+      if (!daily.user || daily.user.toString() !== userId) {
+        return res.status(404).json({ message: 'Daily entry not found' });
+      }
     }
 
     const idSet = new Set(order.map((id: string) => id.toString()));
     const tasksById: any = {};
-    (daily.tasks || []).forEach((t: any) => { tasksById[t._id.toString()] = t; });
+    (daily.tasks || []).forEach((t: any) => { if (t._id) tasksById[t._id.toString()] = t; });
     const newTasks: any[] = [];
     for (const tid of order) {
       const key = tid.toString();
@@ -333,6 +345,7 @@ export const reorderTasks = async (req: Request, res: Response) => {
     }
     // append tasks not present in order array to avoid data loss
     for (const t of (daily.tasks || [])) {
+      if (!t._id) continue;
       if (!idSet.has(t._id.toString())) newTasks.push(t);
     }
 

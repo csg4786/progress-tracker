@@ -10,7 +10,8 @@ export interface IDailyTask {
 }
 
 export interface IDaily extends Document {
-  user: string;
+  workspace?: string | null;
+  user?: string | null;
   date: Date;
   tasks?: IDailyTask[];
   dsaCompleted: number;
@@ -23,43 +24,46 @@ export interface IDaily extends Document {
   score: number; // 0-5
 }
 
-const DailySchema = new Schema<IDaily>({
-  user: { type: Schema.Types.ObjectId, ref: 'User', required: false },
-  workspace: { type: Schema.Types.ObjectId, ref: 'Workspace', required: false },
-  date: { type: Date, required: true },
-  tasks: [
-    {
-      title: { type: String, required: true },
-      type: { type: String, required: true }, // Allow any task type
-      completed: { type: Boolean, default: false },
-      assignee: { type: Schema.Types.ObjectId, ref: 'User', required: false },
-      customFields: { type: Schema.Types.Mixed, default: {} } // Store custom field values
-    }
-  ],
-  dsaCompleted: { type: Number, default: 0 },
-  backendLearning: { type: Number, default: 0 },
-  systemDesign: { type: Number, default: 0 },
-  projectWork: { type: Number, default: 0 },
-  notes: { type: String },
-  timeSpentHours: { type: Number, default: 0 },
-  energyLevel: { type: Number, default: 3 },
-  score: { type: Number, default: 0 }
-});
+const TaskSubSchema = new Schema(
+  {
+    title: { type: String, required: true },
+    type: { type: String, required: true },
+    completed: { type: Boolean, default: false },
+    assignee: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+    customFields: { type: Schema.Types.Mixed, default: {} },
+  },
+  { _id: true }
+);
+
+const DailySchema = new Schema<IDaily>(
+  {
+    workspace: { type: Schema.Types.ObjectId, ref: 'Workspace', required: false },
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+    date: { type: Date, required: true },
+    tasks: { type: [TaskSubSchema], default: [] },
+    dsaCompleted: { type: Number, default: 0 },
+    backendLearning: { type: Number, default: 0 },
+    systemDesign: { type: Number, default: 0 },
+    projectWork: { type: Number, default: 0 },
+    notes: { type: String },
+    timeSpentHours: { type: Number, default: 0 },
+    energyLevel: { type: Number, default: 3 },
+    score: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
 
 // calculate score before save
 DailySchema.pre('save', function (next) {
-  const doc = this as IDaily;
-  // Calculate score based on completed tasks
+  const doc: any = this;
   if (doc.tasks && doc.tasks.length > 0) {
-    const completed = doc.tasks.filter((t) => t.completed).length;
+    const completed = doc.tasks.filter((t: any) => t.completed).length;
     const total = doc.tasks.length;
-    const percentage = (completed / total) * 100;
-    // Map percentage to 0-5 score
+    const percentage = (completed / Math.max(1, total)) * 100;
     doc.score = Math.round((percentage / 100) * 5);
   } else {
-    // Fallback to old calculation if no tasks
-    const components = [doc.dsaCompleted, doc.backendLearning, doc.systemDesign, doc.projectWork];
-    const compAvg = components.reduce((a, b) => a + b, 0) / (components.length || 1);
+    const components = [doc.dsaCompleted || 0, doc.backendLearning || 0, doc.systemDesign || 0, doc.projectWork || 0];
+    const compAvg = components.reduce((a: number, b: number) => a + b, 0) / (components.length || 1);
     const energyFactor = doc.energyLevel || 3;
     const score = Math.min(5, Math.round((compAvg / Math.max(1, compAvg + 1) * 4 + energyFactor) / 2));
     doc.score = score;
@@ -67,8 +71,7 @@ DailySchema.pre('save', function (next) {
   next();
 });
 
-// Ensure uniqueness per user+date and per workspace+date (sparse so it doesn't conflict)
-// Use partialFilterExpression to avoid collisions when `user` or `workspace` is null/absent
+// Ensure uniqueness per user+date and per workspace+date (use partialFilterExpression to avoid collisions when null)
 DailySchema.index({ user: 1, date: 1 }, { unique: true, partialFilterExpression: { user: { $exists: true, $ne: null } } });
 DailySchema.index({ workspace: 1, date: 1 }, { unique: true, partialFilterExpression: { workspace: { $exists: true, $ne: null } } });
 

@@ -7,6 +7,8 @@ export interface ICustomField {
 }
 
 export interface ITaskType extends Document {
+  user?: any;
+  workspace?: any;
   name: string;
   color: string; // hex color like #FF5733
   customFields?: ICustomField[];
@@ -19,7 +21,7 @@ const CustomFieldSchema = new Schema<ICustomField>({
   label: { type: String, required: true }
 });
 
-const TaskTypeSchema = new Schema<ITaskType>({
+const TaskTypeSchema = new Schema({
   user: { type: Schema.Types.ObjectId, ref: 'User', required: false },
   workspace: { type: Schema.Types.ObjectId, ref: 'Workspace', required: false },
   name: { type: String, required: true },
@@ -32,4 +34,4 @@ const TaskTypeSchema = new Schema<ITaskType>({
 TaskTypeSchema.index({ user: 1, name: 1 }, { unique: true, sparse: true });
 TaskTypeSchema.index({ workspace: 1, name: 1 }, { unique: true, sparse: true });
 
-export default model<ITaskType>('TaskType', TaskTypeSchema);
+export default model('TaskType', TaskTypeSchema as any);
